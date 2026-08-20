@@ -65,8 +65,8 @@ STATE_DIR="/root/.proxmox-buzz"
 # --------------------------------------------------------------------------
 # Small helpers
 # --------------------------------------------------------------------------
-log()  { printf '\n\033[1;34m==>\033[0m %s\n' "$*"; }
-ok()   { printf '\033[1;32m  OK\033[0m  %s\n' "$*"; }
+log()  { printf '\n\033[1;34m==>\033[0m %s\n' "$*" >&2; }
+ok()   { printf '\033[1;32m  OK\033[0m  %s\n' "$*" >&2; }
 warn() { printf '\033[1;33m  !!\033[0m  %s\n' "$*" >&2; }
 die()  { printf '\033[1;31mERROR:\033[0m %s\n' "$*" >&2; exit 1; }
 
@@ -365,8 +365,12 @@ wait_for_ip() {
     ip="$(qm guest cmd "$VMID" network-get-interfaces 2>/dev/null \
       | jq -r '.[] | select(.name != "lo") | ."ip-addresses"[]? | select(."ip-address-type" == "ipv4") | ."ip-address"' 2>/dev/null \
       | grep -v '^169\.254\.' | head -n1 || true)"
-    [[ -n "$ip" ]] || sleep 5
+    if [[ -z "$ip" ]]; then
+      printf '.' >&2
+      sleep 5
+    fi
   done
+  printf '\n' >&2
   echo "$ip"
 }
 
@@ -375,10 +379,13 @@ wait_for_ssh() {
   until ssh -o BatchMode=yes -o StrictHostKeyChecking=accept-new -o ConnectTimeout=5 \
       -i "$SSH_KEY_FILE" "${SSH_USER}@${ip}" true 2>/dev/null; do
     if (( tries++ >= 60 )); then
-      die "Timed out after 5 minutes waiting for SSH on ${ip}."
+      printf '\n' >&2
+      die "Timed out after 5 minutes waiting for SSH on ${ip}. If ${ip} was used by an earlier VM, remove the stale key with: ssh-keygen -R ${ip}"
     fi
+    printf '.' >&2
     sleep 5
   done
+  printf '\n' >&2
 }
 
 # --------------------------------------------------------------------------

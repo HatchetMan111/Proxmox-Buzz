@@ -125,7 +125,38 @@ Stoppt und löscht die VM inklusive aller Buzz-Daten unwiderruflich.
   Deployments auf einen unveränderlichen `ghcr.io/block/buzz:sha-<7>`-Tag
   pinnen (`--buzz-image`) und bei neuen Buzz-Releases selbst aktualisieren.
 
-## Lizenz
+## Fehlerbehebung
+
+**Script scheint bei "Waiting for the VM to boot..." oder beim SSH-Warten
+hängen zu bleiben:** Seit Version 1.0.1 gibt das Script während der
+Wartezeit Fortschritts-Punkte (`....`) auf der Konsole aus, damit klar ist,
+dass es noch arbeitet. Wenn es nach ca. 5 Minuten einen Timeout-Fehler
+wirft: Prüfe, ob die VM überhaupt eine IP bekommen hat
+(`qm guest cmd <vmid> network-get-interfaces`) und ob dein SSH-Client die
+Verbindung ablehnt, weil unter derselben IP früher schon mal eine andere
+VM lief (`ssh-keygen -R <ip>` entfernt den alten Host-Key aus
+`known_hosts`).
+
+**Nach einem fehlgeschlagenen/abgebrochenen Lauf bleibt eine halb
+eingerichtete VM zurück:** Mit `install.sh --uninstall <vmid>` sauber
+entfernen und danach erneut installieren.
+
+**"WARNING: Sum of all thin volume sizes ... exceeds the size of thin pool"**
+beim Erstellen der VM: Das ist eine reguläre Proxmox-Warnung bei
+Thin-Provisioning (dein Storage ist überbucht, aber noch nicht voll) und
+kein Installationsfehler — die Installation läuft trotzdem normal weiter.
+
+## Bekannte Fixes (Changelog)
+
+- **1.0.1** — Behoben: `log()`/`ok()`-Statusmeldungen wurden versehentlich
+  über stdout statt stderr ausgegeben. Da die IP-Ermittlung
+  (`wait_for_ip`) ihren Rückgabewert per `$(...)`-Befehlssubstitution
+  einliest, landete die Log-Zeile *innerhalb* der ermittelten IP-Adresse,
+  wodurch der anschließende SSH-Verbindungsaufbau fehlschlug und das
+  Script wie eingefroren wirkte. Zusätzlich gibt es jetzt
+  Fortschritts-Punkte während der Wartezeit.
+
+
 
 Dieses Repository (Installer/Wrapper) steht unter der [MIT-Lizenz](LICENSE).
 Buzz selbst ist ein separates Projekt von Block, Inc. unter Apache License
