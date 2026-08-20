@@ -36,7 +36,7 @@ IFS=$'\n\t'
 # Constants & defaults
 # --------------------------------------------------------------------------
 SCRIPT_NAME="proxmox-buzz"
-SCRIPT_VERSION="1.0.1"
+SCRIPT_VERSION="1.0.3"
 # Used in re-run/uninstall hints. $0 is unusable for this: when the script
 # is invoked as `bash -c "$(curl -fsSL ...)"`, $0 is just "bash", not a
 # script path.
@@ -427,6 +427,11 @@ echo "deb [arch=${ARCH} signed-by=/etc/apt/keyrings/docker.gpg] https://download
 sudo apt-get update -qq
 sudo apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin git openssl
 
+# Also usable without sudo on a fresh login (group membership needs a new
+# session to take effect - this bootstrap keeps using sudo explicitly so
+# it doesn't depend on that).
+sudo usermod -aG docker "$(whoami)"
+
 log "Fetching Buzz's official deployment files (ref: ${BUZZ_REF})"
 sudo mkdir -p /opt/buzz
 sudo chown "$(id -u):$(id -g)" /opt/buzz
@@ -510,16 +515,16 @@ chmod +x run.sh
 
 log "Starting Buzz with Docker Compose (also pulls Postgres, Redis, MinIO)"
 if [[ "$COMPOSE_TLS" == "true" ]]; then
-  BUZZ_COMPOSE_TLS=true ./run.sh start
+  sudo BUZZ_COMPOSE_TLS=true ./run.sh start
 else
-  ./run.sh start
+  sudo ./run.sh start
 fi
 
 sudo ln -sf "$(pwd)/run.sh" /usr/local/bin/buzzctl
 
 echo
 echo "===================== BUZZ INSTALL SUMMARY ====================="
-./run.sh status || true
+sudo ./run.sh status || true
 echo "-------------------------------------------------------------"
 if [[ -n "$DOMAIN" ]]; then
   echo "Relay URL:        wss://${DOMAIN}"
@@ -655,7 +660,7 @@ SSH in any time with:
   ssh -i ${SSH_KEY_FILE} ${SSH_USER}@${VM_IP}
 
 Manage the stack from inside the VM with:
-  buzzctl status | logs | stop | start | upgrade | backup-hint
+  sudo buzzctl status | logs | stop | start | upgrade | backup-hint
 
 Full install log (contains secrets - move it to a password manager, then
 delete it from disk):

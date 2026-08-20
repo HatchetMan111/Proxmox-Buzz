@@ -97,10 +97,16 @@ Das Script fragt vor jeder Änderung am System einmal um Bestätigung
 
 ```bash
 ssh -i /root/.proxmox-buzz/vm-<id>/id_ed25519 buzzadmin@<VM-IP>
-buzzctl status
-buzzctl logs
-buzzctl upgrade
+sudo buzzctl status
+sudo buzzctl logs
+sudo buzzctl upgrade
 ```
+
+`sudo` ist nötig, weil `buzzadmin` erst nach einem *neuen* Login zur
+`docker`-Gruppe gehört (die während der Installation gesetzte
+Gruppenmitgliedschaft wirkt erst ab der nächsten Anmeldung). Da der
+Cloud-Init-User passwortlosen Sudo-Zugriff hat, fragt das nicht nach
+einem Passwort.
 
 Der Owner-Secret-Key erscheint **einmalig** in der Ausgabe und zusätzlich in
 `/root/.proxmox-buzz/vm-<id>/install.log` (root-only, `chmod 600`). Speichere
@@ -148,6 +154,18 @@ kein Installationsfehler — die Installation läuft trotzdem normal weiter.
 
 ## Bekannte Fixes (Changelog)
 
+- **1.0.3** — Behoben: `permission denied while trying to connect to the
+  docker API at unix:///var/run/docker.sock` beim Start des Stacks. Die
+  vorherigen Schritte (Image-Pull, `buzz-admin generate-key`) liefen
+  explizit mit `sudo docker ...` und funktionierten deshalb, aber
+  `./run.sh start` selbst rief `docker compose` ohne `sudo` auf — und der
+  frisch angelegte VM-User war zu diesem Zeitpunkt der laufenden
+  SSH-Sitzung noch nicht wirksam Mitglied der `docker`-Gruppe (das greift
+  erst nach einem neuen Login). `run.sh` wird jetzt konsequent mit `sudo`
+  aufgerufen; der User wird zusätzlich per `usermod -aG docker` in die
+  Gruppe aufgenommen, damit ein *neuer* SSH-Login später auch ohne
+  `sudo` funktioniert. `buzzctl`-Befehle in dieser README nutzen daher
+  vorsorglich `sudo`.
 - **1.0.2** — Behoben: `gpg: command not found` beim Einrichten des
   Docker-APT-Repos, weil das Debian-13-GenericCloud-Image `gnupg` nicht
   vorinstalliert hat. Wird jetzt vorher explizit installiert. Außerdem:
