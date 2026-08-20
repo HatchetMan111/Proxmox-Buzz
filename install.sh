@@ -36,7 +36,11 @@ IFS=$'\n\t'
 # Constants & defaults
 # --------------------------------------------------------------------------
 SCRIPT_NAME="proxmox-buzz"
-SCRIPT_VERSION="1.0.0"
+SCRIPT_VERSION="1.0.1"
+# Used in re-run/uninstall hints. $0 is unusable for this: when the script
+# is invoked as `bash -c "$(curl -fsSL ...)"`, $0 is just "bash", not a
+# script path.
+INSTALL_URL="https://raw.githubusercontent.com/HatchetMan111/Proxmox-Buzz/main/install.sh"
 
 DEBIAN_SUITE="trixie"
 DEBIAN_IMAGE_BASE_URL="https://cloud.debian.org/images/cloud/${DEBIAN_SUITE}/latest"
@@ -76,7 +80,7 @@ on_err() {
   printf 'Nothing further will be changed. Fix the issue above and re-run.\n' >&2
   if [[ -n "${VMID:-}" ]] && qm status "$VMID" >/dev/null 2>&1; then
     printf 'A partially configured VM %s may exist. Inspect it with: qm config %s\n' "$VMID" "$VMID" >&2
-    printf 'Remove it with: %s --uninstall %s\n' "$0" "$VMID" >&2
+    printf 'Remove it with:\n  bash -c "$(curl -fsSL %s)" -- --uninstall %s\n' "$INSTALL_URL" "$VMID" >&2
   fi
 }
 trap 'on_err $LINENO' ERR
@@ -408,6 +412,10 @@ VM_IP="@@VM_IP@@"
 
 log() { printf '\n==> %s\n' "$*"; }
 
+log "Installing prerequisites (gnupg, ca-certificates, curl)"
+sudo apt-get update -qq
+sudo apt-get install -y -qq ca-certificates curl gnupg
+
 log "Installing Docker Engine (official Docker apt repository)"
 sudo install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
@@ -654,7 +662,7 @@ delete it from disk):
   ${STATE_DIR}/vm-${VMID}/install.log
 
 Remove this VM entirely with:
-  $0 --uninstall ${VMID}
+  bash -c "\$(curl -fsSL ${INSTALL_URL})" -- --uninstall ${VMID}
 DONE
 }
 

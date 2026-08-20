@@ -1,0 +1,5 @@
+# This PAT doesn't have the 'workflow' GitHub scope, so this file can't be
+# pushed via API/git with it. It still exists in the working tree / in the
+# downloadable zip - add it manually via the GitHub web UI, or push with a
+# token that has the 'workflow' scope, then remove this ignore rule.
+.github/workflows/shellcheck.yml

@@ -35,14 +35,14 @@ direkt von `github.com/block/buzz` bzw. `ghcr.io/block/buzz` herunter.
 ## Installation
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/<DEIN-USER>/proxmox-buzz/main/install.sh)"
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/HatchetMan111/Proxmox-Buzz/main/install.sh)"
 ```
 
 Mit eigener Domain (aktiviert automatisch Caddy + Let's Encrypt — DNS muss
 vorher schon auf diesen Host zeigen):
 
 ```bash
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/<DEIN-USER>/proxmox-buzz/main/install.sh)" -- --domain buzz.example.com
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/HatchetMan111/Proxmox-Buzz/main/install.sh)" -- --domain buzz.example.com
 ```
 
 Das Script fragt vor jeder Änderung am System einmal um Bestätigung
@@ -148,6 +148,14 @@ kein Installationsfehler — die Installation läuft trotzdem normal weiter.
 
 ## Bekannte Fixes (Changelog)
 
+- **1.0.2** — Behoben: `gpg: command not found` beim Einrichten des
+  Docker-APT-Repos, weil das Debian-13-GenericCloud-Image `gnupg` nicht
+  vorinstalliert hat. Wird jetzt vorher explizit installiert. Außerdem:
+  die Hinweistexte zum Entfernen einer fehlgeschlagenen VM verwendeten
+  `$0`, was bei `bash -c "$(curl ...)"`-Aufrufen nur `bash` ergibt und
+  keinen funktionierenden Befehl liefert — jetzt wird der volle,
+  copy-paste-fähige Befehl ausgegeben. Außerdem: `<DEIN-USER>`-Platzhalter
+  in dieser README durch die echte Repo-URL ersetzt.
 - **1.0.1** — Behoben: `log()`/`ok()`-Statusmeldungen wurden versehentlich
   über stdout statt stderr ausgegeben. Da die IP-Ermittlung
   (`wait_for_ip`) ihren Rückgabewert per `$(...)`-Befehlssubstitution
