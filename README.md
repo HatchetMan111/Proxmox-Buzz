@@ -154,6 +154,21 @@ kein Installationsfehler — die Installation läuft trotzdem normal weiter.
 
 ## Bekannte Fixes (Changelog)
 
+- **1.0.6** — **Der eigentliche Root-Cause**, sichtbar erst dank der in
+  1.0.5 hinzugefügten Diagnose-Ausgabe: `Fatal glibc error: CPU does not
+  support x86-64-v2` im MinIO-Container-Log. Ursache: `qm create` ohne
+  `--cpu`-Angabe verwendet auf der CLI (anders als der GUI-Assistent seit
+  Proxmox VE 8) weiterhin den alten Fallback-CPU-Typ `kvm64`, dem
+  moderne Befehlssatz-Erweiterungen wie SSE4.2/POPCNT fehlen. Aktuelle
+  Binaries — hier das gepinnte MinIO-Image — setzen diese voraus und
+  crashen beim Start sofort, unabhängig von Healthcheck, Timing oder
+  Docker-Konfiguration; das erklärt rückblickend, warum die Fixes in
+  1.0.4/1.0.5 allein nicht ausgereicht haben. Der Installer setzt jetzt
+  explizit `--cpu x86-64-v2-AES` (derselbe moderne Standard, den die
+  Proxmox-GUI seit Version 8 verwendet; kompatibel mit praktisch jeder
+  Host-CPU der letzten ~15 Jahre). Über die neue Option `--cpu-type` lässt
+  sich das bei Bedarf überschreiben (z. B. `--cpu-type host` für maximale
+  Leistung auf einem Einzelknoten).
 - **1.0.5** — Da derselbe `minio ... is unhealthy`-Fehler nach dem
   1.0.4-Fix erneut auftrat (jetzt mit einer komplett neuen VM), ohne dass
   die konkrete Ursache sichtbar war: Der Installer bricht bei einem

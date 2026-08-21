@@ -36,7 +36,7 @@ IFS=$'\n\t'
 # Constants & defaults
 # --------------------------------------------------------------------------
 SCRIPT_NAME="proxmox-buzz"
-SCRIPT_VERSION="1.0.5"
+SCRIPT_VERSION="1.0.6"
 # Used in re-run/uninstall hints. $0 is unusable for this: when the script
 # is invoked as `bash -c "$(curl -fsSL ...)"`, $0 is just "bash", not a
 # script path.
@@ -58,6 +58,7 @@ BRIDGE=""
 CORES="2"
 MEMORY="4096"
 DISK_SIZE="20G"
+CPU_TYPE="x86-64-v2-AES"
 DOMAIN=""
 OWNER_PUBKEY=""
 SSH_USER="buzzadmin"
@@ -104,6 +105,11 @@ Options:
   --cores <n>             CPU cores (default: 2)
   --memory <mb>           RAM in MB (default: 4096)
   --disk <size>           Disk size, e.g. 20G (default: 20G)
+  --cpu-type <type>       QEMU CPU type (default: x86-64-v2-AES - the same
+                          modern baseline the Proxmox 8+ GUI defaults to;
+                          use 'host' for max performance on a single node,
+                          or an older type only if your hardware predates
+                          ~2010 Intel Westmere / AMD Opteron_G4)
   --domain <fqdn>         Public domain name. Enables Caddy + automatic HTTPS
                           (Let's Encrypt). DNS for this domain must already
                           point at this host before you run this script.
@@ -148,6 +154,7 @@ while (( $# )); do
     --cores)         CORES="${2:?--cores needs a value}"; shift 2 ;;
     --memory)        MEMORY="${2:?--memory needs a value}"; shift 2 ;;
     --disk)          DISK_SIZE="${2:?--disk needs a value}"; shift 2 ;;
+    --cpu-type)      CPU_TYPE="${2:?--cpu-type needs a value}"; shift 2 ;;
     --domain)        DOMAIN="${2:?--domain needs a value}"; shift 2 ;;
     --owner-pubkey)  OWNER_PUBKEY="${2:?--owner-pubkey needs a value}"; shift 2 ;;
     --ssh-user)      SSH_USER="${2:?--ssh-user needs a value}"; shift 2 ;;
@@ -338,6 +345,7 @@ create_vm() {
     --name "$VM_NAME" \
     --memory "$MEMORY" \
     --cores "$CORES" \
+    --cpu "$CPU_TYPE" \
     --ostype l26 \
     --net0 "virtio,bridge=${BRIDGE}" \
     --scsihw virtio-scsi-pci \
@@ -672,7 +680,7 @@ main() {
     Disk storage:        ${STORAGE}
     Cloud-init snippets:  ${SNIPPET_STORAGE}
     Network bridge:       ${BRIDGE}
-    CPU / RAM / Disk:     ${CORES} cores / ${MEMORY} MB / ${DISK_SIZE}
+    CPU / RAM / Disk:     ${CORES} cores (${CPU_TYPE}) / ${MEMORY} MB / ${DISK_SIZE}
     Domain:               ${DOMAIN:-<none - uses the VM DHCP IP, no TLS>}
     Buzz container image: ${BUZZ_IMAGE}
     Buzz owner identity:  ${OWNER_PUBKEY:-<will be generated for you>}
