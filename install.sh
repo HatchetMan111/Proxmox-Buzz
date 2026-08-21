@@ -36,7 +36,7 @@ IFS=$'\n\t'
 # Constants & defaults
 # --------------------------------------------------------------------------
 SCRIPT_NAME="proxmox-buzz"
-SCRIPT_VERSION="1.0.3"
+SCRIPT_VERSION="1.0.4"
 # Used in re-run/uninstall hints. $0 is unusable for this: when the script
 # is invoked as `bash -c "$(curl -fsSL ...)"`, $0 is just "bash", not a
 # script path.
@@ -444,6 +444,17 @@ cd src
 git sparse-checkout set deploy/compose >/dev/null
 cd deploy/compose
 [[ -f compose.yml ]] || { echo "compose.yml missing after checkout - upstream repo layout may have changed. Aborting." >&2; exit 1; }
+
+# Upstream pins a minio/minio image release (2025-09) that no longer ships
+# curl, but still uses a curl-based healthcheck - so the minio container
+# never reports healthy (see minio/minio#18373 upstream). Patch it to the
+# officially recommended replacement, which the same image does support.
+if grep -qF '"curl", "-f", "http://127.0.0.1:9000/minio/health/live"' compose.yml; then
+  log "Patching a known-broken upstream MinIO healthcheck (curl -> mc ready local)"
+  sed -i 's#\["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"\]#["CMD", "mc", "ready", "local"]#' compose.yml
+else
+  echo "NOTE: expected MinIO healthcheck line not found in compose.yml (upstream may have already fixed this) - left untouched." >&2
+fi
 
 cp -n .env.example .env
 

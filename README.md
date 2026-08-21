@@ -154,6 +154,19 @@ kein Installationsfehler — die Installation läuft trotzdem normal weiter.
 
 ## Bekannte Fixes (Changelog)
 
+- **1.0.4** — Behoben: `dependency failed to start: container
+  buzz-prod-minio-1 is unhealthy` beim Start des Compose-Stacks. Das ist
+  ein **Upstream-Bug in Buzz's `compose.yml`**: dort ist für den
+  MinIO-Container ein `curl`-basierter Healthcheck hinterlegt, aber die
+  gepinnte `minio/minio`-Image-Version (September 2025) enthält seit Ende
+  2023 gar kein `curl` mehr ([minio/minio#18373](https://github.com/minio/minio/issues/18373))
+  — der Healthcheck kann dadurch nie erfolgreich sein. Der Installer
+  patcht `compose.yml` jetzt automatisch auf den offiziell von MinIO
+  empfohlenen Ersatz-Healthcheck `mc ready local` (das MinIO-Image bringt
+  den `mc`-Client mit). Der Patch ist defensiv: Falls Buzz das
+  irgendwann selbst behebt, findet der Installer die alte Zeile nicht
+  mehr und lässt `compose.yml` unangetastet.
+
 - **1.0.3** — Behoben: `permission denied while trying to connect to the
   docker API at unix:///var/run/docker.sock` beim Start des Stacks. Die
   vorherigen Schritte (Image-Pull, `buzz-admin generate-key`) liefen
