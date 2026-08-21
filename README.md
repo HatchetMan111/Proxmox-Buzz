@@ -154,6 +154,22 @@ kein Installationsfehler — die Installation läuft trotzdem normal weiter.
 
 ## Bekannte Fixes (Changelog)
 
+- **1.0.5** — Da derselbe `minio ... is unhealthy`-Fehler nach dem
+  1.0.4-Fix erneut auftrat (jetzt mit einer komplett neuen VM), ohne dass
+  die konkrete Ursache sichtbar war: Der Installer bricht bei einem
+  fehlgeschlagenen Start jetzt nicht mehr stillschweigend ab, sondern
+  gibt automatisch `docker compose ps`, die kompletten Container-Logs
+  aller Services und den rohen Healthcheck-Log des MinIO-Containers aus
+  (`docker inspect ... State.Health`). Außerdem: Alle Images werden jetzt
+  vor dem Start explizit vorab gezogen (`run.sh pull`), damit der
+  Healthcheck nicht während laufender Image-Downloads tickt, und das
+  Zeitbudget für den MinIO-Healthcheck wurde defensiv von ca. 70 auf 180
+  Sekunden erhöht (nur für MinIO, Postgres/Redis/Relay unverändert) —
+  auf einer frisch gestarteten, ressourcenknappen VM kann der erste Boot
+  aller Container gleichzeitig länger dauern als die ursprünglich
+  vorgesehenen 70 Sekunden. Der Healthcheck-Patch aus 1.0.4 selbst wurde
+  gegen die echte, aktuell von GitHub geladene `compose.yml` verifiziert
+  (inkl. YAML-Validierung) statt nur angenommen.
 - **1.0.4** — Behoben: `dependency failed to start: container
   buzz-prod-minio-1 is unhealthy` beim Start des Compose-Stacks. Das ist
   ein **Upstream-Bug in Buzz's `compose.yml`**: dort ist für den

@@ -36,7 +36,7 @@ IFS=$'\n\t'
 # Constants & defaults
 # --------------------------------------------------------------------------
 SCRIPT_NAME="proxmox-buzz"
-SCRIPT_VERSION="1.0.4"
+SCRIPT_VERSION="1.0.5"
 # Used in re-run/uninstall hints. $0 is unusable for this: when the script
 # is invoked as `bash -c "$(curl -fsSL ...)"`, $0 is just "bash", not a
 # script path.
@@ -449,9 +449,16 @@ cd deploy/compose
 # curl, but still uses a curl-based healthcheck - so the minio container
 # never reports healthy (see minio/minio#18373 upstream). Patch it to the
 # officially recommended replacement, which the same image does support.
-if grep -qF '"curl", "-f", "http://127.0.0.1:9000/minio/health/live"' compose.yml; then
-  log "Patching a known-broken upstream MinIO healthcheck (curl -> mc ready local)"
-  sed -i 's#\["CMD", "curl", "-f", "http://127.0.0.1:9000/minio/health/live"\]#["CMD", "mc", "ready", "local"]#' compose.yml
+# Scoped to only the minio block (found via the unique curl/URL line, then
+# a small line window after it) since other services share the same
+# 'retries: 12' value and must not be touched.
+MINIO_HC_LINE="$(grep -n '"curl", "-f", "http://127.0.0.1:9000/minio/health/live"' compose.yml | head -n1 | cut -d: -f1)"
+if [[ -n "$MINIO_HC_LINE" ]]; then
+  log "Patching the upstream MinIO healthcheck (curl -> mc ready local) and widening its start-up budget"
+  END_LINE=$((MINIO_HC_LINE + 5))
+  sed -i "${MINIO_HC_LINE},${END_LINE}s#\[\"CMD\", \"curl\", \"-f\", \"http://127.0.0.1:9000/minio/health/live\"\]#[\"CMD\", \"mc\", \"ready\", \"local\"]#" compose.yml
+  sed -i "${MINIO_HC_LINE},${END_LINE}s/retries: 12/retries: 30/" compose.yml
+  sed -i "${MINIO_HC_LINE},${END_LINE}s/start_period: 10s/start_period: 60s/" compose.yml
 else
   echo "NOTE: expected MinIO healthcheck line not found in compose.yml (upstream may have already fixed this) - left untouched." >&2
 fi
@@ -524,11 +531,50 @@ fi
 chmod 600 .env
 chmod +x run.sh
 
-log "Starting Buzz with Docker Compose (also pulls Postgres, Redis, MinIO)"
+COMPOSE_FILES=(-f compose.yml)
+[[ "$COMPOSE_TLS" == "true" ]] && COMPOSE_FILES+=(-f compose.caddy.yml)
+compose_raw() { sudo docker compose --env-file .env "${COMPOSE_FILES[@]}" "$@"; }
+
+dump_diagnostics() {
+  echo
+  echo "===================== DIAGNOSTICS (start failed) ====================="
+  echo "--- container status ---"
+  compose_raw ps -a || true
+  echo
+  echo "--- compose logs, all services, last 200 lines each ---"
+  compose_raw logs --no-color --tail=200 || true
+  echo
+  echo "--- MinIO container health-check detail (if present) ---"
+  local minio_cid
+  minio_cid="$(compose_raw ps -q minio 2>/dev/null || true)"
+  if [[ -n "$minio_cid" ]]; then
+    sudo docker inspect --format '{{json .State.Health}}' "$minio_cid" || true
+  else
+    echo "(no minio container id found)"
+  fi
+  echo "========================================================================"
+}
+
+log "Pulling all images first (Postgres, Redis, MinIO, Buzz$( [[ "$COMPOSE_TLS" == "true" ]] && echo ", Caddy"))"
 if [[ "$COMPOSE_TLS" == "true" ]]; then
-  sudo BUZZ_COMPOSE_TLS=true ./run.sh start
+  sudo BUZZ_COMPOSE_TLS=true ./run.sh pull
 else
-  sudo ./run.sh start
+  sudo ./run.sh pull
+fi
+
+log "Starting Buzz with Docker Compose"
+START_OK=1
+if [[ "$COMPOSE_TLS" == "true" ]]; then
+  sudo BUZZ_COMPOSE_TLS=true ./run.sh start || START_OK=0
+else
+  sudo ./run.sh start || START_OK=0
+fi
+
+if [[ "$START_OK" != "1" ]]; then
+  dump_diagnostics
+  echo "Buzz failed to start. The diagnostics above show the actual container" >&2
+  echo "logs and health-check output - please include them when reporting this." >&2
+  exit 1
 fi
 
 sudo ln -sf "$(pwd)/run.sh" /usr/local/bin/buzzctl
